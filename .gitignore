@@ -1,9 +1,9 @@
-   data/raw/
-   data/sample/
-   *.duckdb
-   *.duckdb.wal
-   outputs/
-   __pycache__/
-   .ipynb_checkpoints/
-   .venv/
-   .DS_Store
+data/raw/
+data/sample/
+*.duckdb
+*.duckdb.wal
+outputs/
+__pycache__/
+.ipynb_checkpoints/
+.venv/
+.DS_Store
