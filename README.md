@@ -147,7 +147,7 @@ jupyter nbconvert --to notebook --execute notebooks/analysis.ipynb   # 차트 �
 ## 폴더 구조
 ```
 ├── data/        원본 CSV (GitHub 미포함, data/README.md에 받는 법)
-├── sql/         분석 쿼리 (01 탐색 → 02 정제 → 03~08 분석 → 09 가설 검정 → 10 대시보드)
+├── sql/         분석 쿼리 (01 탐색 → 02 정제 → 03~08 분석 → 09 가설 검정 → 10~11 대시보드)
 ├── scripts/     적재·SQL 실행·노트북 생성 스크립트
 ├── notebooks/   시각화·카이제곱 검정
 ├── images/      README용 차트

@@ -42,3 +42,41 @@
 - 객단가: `SUM([revenue]) / SUM([purchase_sessions])`
 
 비율은 일별 값의 평균이 아니라 **합계끼리 나눠** 계산했습니다. 일별 비율을 평균하면 방문이 적은 날과 많은 날이 같은 무게로 섞여, 기간을 바꿀 때 값이 틀어지기 때문입니다.
+
+---
+
+# 대시보드 2: 장바구니 회수 모니터링
+
+분석 보고서에서 제안한 장바구니 회수 전략(소액 장바구니 채우기, 24시간 리마인드)을 **실제로 운영한다면 매일 확인할 화면**입니다. 첫 번째 현황판이 "매출이 어떤가"를 본다면, 이 화면은 "장바구니에서 놓친 매출을 얼마나 되찾고 있는가"를 봅니다.
+
+## 데이터 소스
+
+`sql/11_dashboard_cart.sql` (09번에서 만든 `session_carts`, `cart_abandons` 테이블 사용)
+
+| CSV | 단위 | 내용 |
+|---|---|---|
+| `dash_cart_daily.csv` | 일 | 장바구니 세션, 구매·이탈 세션, 이탈 금액, 소액(10 미만)·그 외 장바구니의 세션 수와 구매 수 |
+| `dash_cart_basket_band.csv` | 일 × 총액 구간 | 장바구니 총액 구간별 세션 수와 구매 수 |
+| `dash_cart_recovery.csv` | 이탈일 × 장바구니 그룹 × 경과일 | 이탈 후 1·2·3·5·7·14일 안에 돌아온 수(`returned`)와 다시 구매한 수(`recovered`) |
+| `dash_remind_targets.csv` | 이탈일 | 이탈 후 24시간 안에 돌아오지 않은 리마인드 대상 수와 담아 둔 금액 |
+| `dash_cart_period_compare.csv` | 기간 | 최근 30일 vs 이전 30일 KPI |
+
+회수 지표는 이탈 후 14일을 지켜봐야 계산할 수 있어서, 데이터 마지막 14일의 이탈은 제외했습니다(보고서 가설 3과 같은 기준).
+
+## 화면 구성
+
+| 위치 | 내용 | 데이터 |
+|---|---|---|
+| 상단 KPI 카드 | 장바구니 이탈률, 소액 장바구니 비중, 24시간 복귀율, 7일 회수 구매율 (이전 30일 대비 증감) | `dash_cart_period_compare` |
+| 중단 왼쪽 | 일별 장바구니 이탈률과 이탈 금액 추이 | `dash_cart_daily` |
+| 중단 오른쪽 | 장바구니 총액 구간별 구매 전환율 | `dash_cart_basket_band` |
+| 하단 왼쪽 | 이탈 후 경과일별 복귀율·회수 구매율 곡선 (소액 vs 그 외) | `dash_cart_recovery` |
+| 하단 오른쪽 | 일별 리마인드 대상 수와 담아 둔 금액 | `dash_remind_targets` |
+
+## 계산식
+
+- 장바구니 이탈률: `SUM([abandoned_sessions]) / SUM([cart_sessions])`
+- 소액 장바구니 비중: `SUM([small_cart_sessions]) / SUM([cart_sessions])`
+- 소액 장바구니 전환율: `SUM([small_cart_purchased]) / SUM([small_cart_sessions])`
+- 총액 구간별 전환율: `SUM([purchased_sessions]) / SUM([cart_sessions])`
+- 복귀율: `SUM([returned]) / SUM([abandons])`, 회수 구매율: `SUM([recovered]) / SUM([abandons])`
