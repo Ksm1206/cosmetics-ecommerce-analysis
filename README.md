@@ -152,5 +152,5 @@ jupyter nbconvert --to notebook --execute notebooks/analysis.ipynb   # 차트 �
 ├── notebooks/   시각화·카이제곱 검정
 ├── images/      README용 차트
 ├── dashboard/   대시보드 설계 문서
-└── docs/        진행 가이드
+└── docs/        분석 보고서 (PDF)
 ```
