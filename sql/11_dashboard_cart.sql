@@ -46,17 +46,20 @@ GROUP BY 1, 2
 ORDER BY 1, 2;
 
 -- name: dash_cart_recovery
--- 이탈일 × 장바구니 그룹 × 경과일: 이탈 후 N일 안에 돌아온 수와 다시 구매한 수
--- (세로로 긴 형태라서 Tableau에서 경과일을 x축에 두면 바로 복귀 곡선이 그려짐)
+-- 이탈일 × 장바구니 그룹 × 경과일 × 지표: 이탈 후 N일 안에 돌아온 수(복귀)와 다시 구매한 수(회수 구매)
+-- 지표를 행으로 쌓은 긴 형태라서 Tableau에서 경과일을 x축, 지표를 색으로 두면 바로 두 곡선이 그려짐
 SELECT CAST(abandon_time AS DATE)                                              AS abandon_date,
        CASE WHEN basket_value < 10 THEN '소액(10 미만)' ELSE '그 외(10 이상)' END AS basket_group,
        n_days,
+       metric,
        COUNT(*)                                                                AS abandons,
-       COUNT(*) FILTER (WHERE days_to_return   <= n_days)                      AS returned,
-       COUNT(*) FILTER (WHERE days_to_purchase <= n_days)                      AS recovered
-FROM cart_abandons, (VALUES (1), (2), (3), (5), (7), (14)) AS t(n_days)
-GROUP BY 1, 2, 3
-ORDER BY 1, 2, 3;
+       COUNT(*) FILTER (WHERE CASE metric WHEN '복귀율' THEN days_to_return
+                                          ELSE days_to_purchase END <= n_days) AS hits
+FROM cart_abandons,
+     (VALUES (1), (2), (3), (5), (7), (14)) AS t(n_days),
+     (VALUES ('복귀율'), ('회수 구매율')) AS m(metric)
+GROUP BY 1, 2, 3, 4
+ORDER BY 1, 2, 3, 4;
 
 -- name: dash_remind_targets
 -- 일별 리마인드 대상: 이탈 후 24시간 안에 돌아오지 않은 고객 (전략 2의 발송 대상)
@@ -71,8 +74,8 @@ FROM cart_abandons
 GROUP BY 1
 ORDER BY 1;
 
--- name: dash_cart_period_compare
--- 기준일 기준 최근 30일 vs 이전 30일 (KPI 카드 증감 표시용)
+-- name: dash_cart_kpi
+-- KPI 카드: 기준일 기준 최근 30일 vs 이전 30일 (지표마다 한 행)
 -- 회수 지표는 이탈 데이터가 끝나는 날(기준일 - 14일)을 기준으로 따로 자름
 WITH c AS (
     SELECT CAST(session_start AS DATE) AS d, basket_value, purchased
@@ -86,27 +89,34 @@ a AS (
 ),
 a_last AS (SELECT MAX(d) AS last_d FROM a),
 cart AS (
-    SELECT CASE WHEN d > last_d - 30 THEN 'last_30d'
-                WHEN d > last_d - 60 THEN 'prev_30d' END AS period,
-           COUNT(*)                                                      AS cart_sessions,
-           ROUND((COUNT(*) - SUM(purchased)) * 100.0 / COUNT(*), 2)      AS abandon_rate_pct,
-           ROUND(COUNT(*) FILTER (WHERE basket_value < 10) * 100.0 / COUNT(*), 2) AS small_cart_share_pct,
-           ROUND(COUNT(*) FILTER (WHERE basket_value < 10 AND purchased = 1) * 100.0
-                 / COUNT(*) FILTER (WHERE basket_value < 10), 2)         AS small_cart_cvr_pct
+    SELECT CASE WHEN d > last_d - 30 THEN 'last' WHEN d > last_d - 60 THEN 'prev' END AS period,
+           (COUNT(*) - SUM(purchased)) * 100.0 / COUNT(*)                       AS abandon_rate,
+           COUNT(*) FILTER (WHERE basket_value < 10) * 100.0 / COUNT(*)         AS small_cart_share
     FROM c, c_last
     GROUP BY 1
 ),
 rec AS (
-    SELECT CASE WHEN d > last_d - 30 THEN 'last_30d'
-                WHEN d > last_d - 60 THEN 'prev_30d' END AS period,
-           COUNT(*)                                                                     AS abandons,
-           ROUND(COUNT(*) FILTER (WHERE days_to_return <= 1) * 100.0 / COUNT(*), 2)     AS return_24h_pct,
-           ROUND(COUNT(*) FILTER (WHERE days_to_purchase <= 7) * 100.0 / COUNT(*), 2)   AS recovered_7d_pct
+    SELECT CASE WHEN d > last_d - 30 THEN 'last' WHEN d > last_d - 60 THEN 'prev' END AS period,
+           COUNT(*) FILTER (WHERE days_to_return <= 1) * 100.0 / COUNT(*)       AS return_24h,
+           COUNT(*) FILTER (WHERE days_to_purchase <= 7) * 100.0 / COUNT(*)     AS recovered_7d
     FROM a, a_last
     GROUP BY 1
+),
+w AS (
+    SELECT period, abandon_rate, small_cart_share, return_24h, recovered_7d
+    FROM cart JOIN rec USING (period)
+    WHERE period IS NOT NULL
+),
+k AS (
+    SELECT 1 AS kpi_order, '장바구니 이탈률' AS kpi, period, abandon_rate AS v FROM w
+    UNION ALL SELECT 2, '소액 장바구니 비중', period, small_cart_share FROM w
+    UNION ALL SELECT 3, '24시간 복귀율', period, return_24h FROM w
+    UNION ALL SELECT 4, '7일 회수 구매율', period, recovered_7d FROM w
 )
-SELECT cart.period, cart_sessions, abandon_rate_pct, small_cart_share_pct, small_cart_cvr_pct,
-       abandons, return_24h_pct, recovered_7d_pct
-FROM cart JOIN rec USING (period)
-WHERE cart.period IS NOT NULL
+SELECT kpi_order, kpi,
+       ROUND(MAX(v) FILTER (WHERE period = 'last'), 2)                                   AS last_30d_pct,
+       ROUND(MAX(v) FILTER (WHERE period = 'prev'), 2)                                   AS prev_30d_pct,
+       ROUND(MAX(v) FILTER (WHERE period = 'last') - MAX(v) FILTER (WHERE period = 'prev'), 2) AS change_pp
+FROM k
+GROUP BY 1, 2
 ORDER BY 1;

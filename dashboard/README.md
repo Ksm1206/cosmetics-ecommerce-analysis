@@ -57,9 +57,9 @@
 |---|---|---|
 | `dash_cart_daily.csv` | 일 | 장바구니 세션, 구매·이탈 세션, 이탈 금액, 소액(10 미만)·그 외 장바구니의 세션 수와 구매 수 |
 | `dash_cart_basket_band.csv` | 일 × 총액 구간 | 장바구니 총액 구간별 세션 수와 구매 수 |
-| `dash_cart_recovery.csv` | 이탈일 × 장바구니 그룹 × 경과일 | 이탈 후 1·2·3·5·7·14일 안에 돌아온 수(`returned`)와 다시 구매한 수(`recovered`) |
+| `dash_cart_recovery.csv` | 이탈일 × 장바구니 그룹 × 경과일 × 지표 | 이탈 후 1·2·3·5·7·14일 안에 돌아온 수(`metric`=복귀율)와 다시 구매한 수(`metric`=회수 구매율)를 `hits`로 쌓은 긴 형태 |
 | `dash_remind_targets.csv` | 이탈일 | 이탈 후 24시간 안에 돌아오지 않은 리마인드 대상 수와 담아 둔 금액 |
-| `dash_cart_period_compare.csv` | 기간 | 최근 30일 vs 이전 30일 KPI |
+| `dash_cart_kpi.csv` | 지표 | KPI 4개의 최근 30일·이전 30일 값과 증감(%p) |
 
 회수 지표는 이탈 후 14일을 지켜봐야 계산할 수 있어서, 데이터 마지막 14일의 이탈은 제외했습니다(보고서 가설 3과 같은 기준).
 
@@ -67,11 +67,11 @@
 
 | 위치 | 내용 | 데이터 |
 |---|---|---|
-| 상단 KPI 카드 | 장바구니 이탈률, 소액 장바구니 비중, 24시간 복귀율, 7일 회수 구매율 (이전 30일 대비 증감) | `dash_cart_period_compare` |
-| 중단 왼쪽 | 일별 장바구니 이탈률과 이탈 금액 추이 | `dash_cart_daily` |
+| 상단 KPI 카드 | 장바구니 이탈률, 소액 장바구니 비중, 24시간 복귀율, 7일 회수 구매율 (이전 30일 대비 증감) | `dash_cart_kpi` |
+| 중단 왼쪽 | 주별 장바구니 이탈률 추이 | `dash_cart_daily` |
 | 중단 오른쪽 | 장바구니 총액 구간별 구매 전환율 | `dash_cart_basket_band` |
 | 하단 왼쪽 | 이탈 후 경과일별 복귀율·회수 구매율 곡선 (소액 vs 그 외) | `dash_cart_recovery` |
-| 하단 오른쪽 | 일별 리마인드 대상 수와 담아 둔 금액 | `dash_remind_targets` |
+| 하단 오른쪽 | 주별 리마인드 대상 수 | `dash_remind_targets` |
 
 ## 계산식
 
@@ -79,4 +79,6 @@
 - 소액 장바구니 비중: `SUM([small_cart_sessions]) / SUM([cart_sessions])`
 - 소액 장바구니 전환율: `SUM([small_cart_purchased]) / SUM([small_cart_sessions])`
 - 총액 구간별 전환율: `SUM([purchased_sessions]) / SUM([cart_sessions])`
-- 복귀율: `SUM([returned]) / SUM([abandons])`, 회수 구매율: `SUM([recovered]) / SUM([abandons])`
+- 복귀율·회수 구매율: `SUM([hits]) / SUM([abandons])` (`metric`을 색으로 구분)
+
+날짜는 주 단위로 보여 줍니다. 2019년 10월 2·6·7일에 장바구니 세션이 평소의 2~3배로 몰려(이탈률 약 96%), 일 단위로 그리면 이 며칠이 추세를 가리기 때문입니다.
